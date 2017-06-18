@@ -10,6 +10,7 @@ contract 'DisciplineWallet', (paccounts)->
     i = null
     DisciplineWallet.new(12,1000, from: accounts[0]).then (instance)->
       i = instance
+      #check the current owner
       i.owner.call()
     .then (result)->
       #console.log result
@@ -20,6 +21,7 @@ contract 'DisciplineWallet', (paccounts)->
     i = null
     DisciplineWallet.new(12,1000, from: accounts[0]).then (instance)->
       i = instance
+      #check if the bActive bit was inited
       i.bActive.call()
     .then (result)->
       assert.equal result, false, 'contract was on before getting ether'
@@ -27,6 +29,7 @@ contract 'DisciplineWallet', (paccounts)->
     i = null
     DisciplineWallet.new(12,1000, from: accounts[0]).then (instance)->
       i = instance
+      #check calculation
       i.Period.call()
     .then (result)->
       #console.log result
@@ -36,9 +39,11 @@ contract 'DisciplineWallet', (paccounts)->
     startTime = null
     DisciplineWallet.new(12,1000, from: accounts[0]).then (instance)->
       i = instance
+      #check that the contractStart is tored
       i.contractStart.call()
     .then (result)->
       startTime = result
+      #check that the next withdraw calc works
       i.NextWithdraw.call()
     .then (result)->
       #console.log result
@@ -57,6 +62,7 @@ contract 'DisciplineWallet', (paccounts)->
       web3.eth.getBalance(i.address)
     .then (result)->
       startBalance0 = result
+      #Send some eth to the contract and make sure it moves
       web3.eth.sendTransaction({ from: accounts[1], to: i.address, value: 14000 })
     .then (result)->
       #console.log result
@@ -79,6 +85,8 @@ contract 'DisciplineWallet', (paccounts)->
       assert.equal result, true, 'contract didnt turn on'
   it "should fail if constructor sent ether", ->
     i = null
+    #this should fail because we are sending ether - doesnt have to be this way, we could make
+    #constructor payable
     DisciplineWallet.new(12, 1000, {from: accounts[0], value: 14000}).then (instance)->
       i = instance
       i.bActive.call()
@@ -86,18 +94,20 @@ contract 'DisciplineWallet', (paccounts)->
       assert.equal result, false, 'contract was on before getting ether'
     .catch (error)->
       assert.equal error.toString().indexOf("non-payable") > -1, true, 'didnt find non-payable error'
-  it "should allow withdrawl after 1 month and ether goes to owner",  (done)->
+  it "should allow withdraw after 1 month and ether goes to owner",  (done)->
     i = null
     startBalance = 0
     #console.log 'starting'
-
+    #we want a wallet that pays out over 12 months at 0.1 ether per month
     DisciplineWallet.new(12, web3.toWei(0.1,"ether"), from: accounts[0]).then (instance)->
       i = instance
       #console.log 'have instance'
+      #fund the wallet
       web3.eth.sendTransaction({ from: accounts[1], to: i.address, value: web3.toWei(1.4,"ether") })
     .then (result)->
       #console.log result
       #console.log 'sending'
+      #this function advances time in our test client by 34 days
       web3.currentProvider.sendAsync
         jsonrpc: "2.0",
         method: "evm_increaseTime",
@@ -107,6 +117,7 @@ contract 'DisciplineWallet', (paccounts)->
         #console.log err
         startBalance = web3.eth.getBalance(accounts[0])
         #console.log startBalance
+        #call the withdraw fucntion.  0.1 eth shold move from the contract to account[0]
         i.Withdraw(from: accounts[0])
         .then (result)->
           web3.eth.getBalance(i.address)
@@ -127,6 +138,7 @@ contract 'DisciplineWallet', (paccounts)->
       i = instance
       web3.eth.sendTransaction({ from: accounts[1], to: i.address, value: 14000 })
     .then (result)->
+      #try to withdraw without time passing
       i.Withdraw(from: accounts[0])
     .then (result)->
       assert.equal false, true, 'withdraw didnt fail'
@@ -161,6 +173,7 @@ contract 'DisciplineWallet', (paccounts)->
     .then (result)->
       #console.log result
       #console.log 'sending'
+      #make 13 withdraws and the last one should fail
       async.eachSeries [1..13], (item, done)->
         #console.log item
         withdrawFunction()
@@ -186,6 +199,7 @@ contract 'DisciplineWallet', (paccounts)->
   it "should not allow withdraw if some time has passed, but not enough", (done)->
     i = null
     startBalance = 0
+    #this function takes a thisTerm and nullifies the time passage if after 3
     withdrawFunction = (thisTerm) ->
       return q.Promise (resolve, reject)->
         timeFudge = 0
@@ -210,6 +224,7 @@ contract 'DisciplineWallet', (paccounts)->
     .then (result)->
       #console.log result
       #console.log 'sending'
+      #after the 3rd withdraw we stop advancing time and expect a throw
       async.eachSeries [1..11], (item, done)->
         #console.log item
         withdrawFunction(item)
@@ -259,6 +274,7 @@ contract 'DisciplineWallet', (paccounts)->
     .then (result)->
       #console.log result
       #console.log 'sending'
+      #pass 12 terms
       async.eachSeries [1..12], (item, done)->
         #console.log item
         withdrawFunction()
@@ -280,6 +296,7 @@ contract 'DisciplineWallet', (paccounts)->
     .then (result)->
       startBalance = result
       #console.log 'calling withdrawall'
+      #try to withdraw the remaining .2 ETH
       i.WithdrawAll(accounts[0], from:accounts[0])
     .then (result)->
       #console.log 'checking balance'
@@ -329,6 +346,7 @@ contract 'DisciplineWallet', (paccounts)->
     .then (result)->
       #console.log result
       #console.log 'sending'
+      #do 3 withdraws
       async.eachSeries [1..3], (item, done)->
         #console.log item
         withdrawFunction(item)
@@ -341,6 +359,7 @@ contract 'DisciplineWallet', (paccounts)->
           #console.log err
           done(err)
     .then (result)->
+      #try to withdrawAll and it should fail
       i.WithdrawAll(accounts[0], from:accounts[0])
     .then ->
       assert(false, 'shouldnt be here')
@@ -380,6 +399,7 @@ contract 'DisciplineWallet', (paccounts)->
     .then (result)->
       #console.log result
       #console.log 'sending'
+      #take out all 12 withdraws
       async.eachSeries [1..12], (item, done)->
         #console.log item
         withdrawFunction()

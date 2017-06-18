@@ -1,12 +1,32 @@
 pragma solidity ^0.4.11;
 
-
-
 contract DisciplineWallet {
+
+  /**
+  * @dev term is the number of months that a wallet will pay out
+  */
   uint16 public term;
+
+
+  /**
+  * @dev currentTerm tracks the number of withdraws that have occured
+  */
   uint16 public currentTerm;
+
+  /**
+  * @dev contractStart stores the timestamp(number of seconds since 1/1/1970) that the contract was created
+  */
   uint public contractStart;
+
+  /**
+  * @dev payout is the number of wei(smallest unit of ETH) to pay out
+  */
   uint public payout;
+
+
+  /**
+  * @dev bActive is tracks if the wallet is open for business or not
+  */
   bool public bActive;
   address public owner;
 
@@ -20,15 +40,20 @@ contract DisciplineWallet {
     _;
   }
 
+  /**
+   * @dev constructor
+   * @param termLength number of months that the contract will be active
+   * @param number of wei to pay out
+   */
   function DisciplineWallet(uint16 termLength, uint weiOutputPerPeriod) {
 
-    if(termLength < 1) throw;
-    if(weiOutputPerPeriod < 1) throw;
+    if(termLength < 1) throw; //term cant be 0
+    if(weiOutputPerPeriod < 1) throw; //we cant pay out 0
 
     //the owner will start as the address creating the contract
     owner = msg.sender;
 
-
+    //set the term
     term = termLength;
 
     //record the time of the start contract
@@ -39,29 +64,37 @@ contract DisciplineWallet {
 
     //set the payout per period
     payout = weiOutputPerPeriod;
-
-
   }
 
 
-  //put this in a constant function so that we don't have to use storage
-  //execution takes 302 gas which means calculation is more efficent in any contract under 66 months.
-  //not sure about deployment costs
+  /**
+   * @dev calculates the length of a month
+   */
   function Period() constant returns (uint32 lengthOfMonth){
+    //put this in a constant function so that we don't have to use storage
+    //execution takes 302 gas which means calculation is more efficent in any contract under 66 months.
+    //not sure about deployment costs
     //the period is about 30.66 days so that leap year is taken into account every 4 years.
     return (1 years / 12) + (1 days / 4);
   }
 
-  //nextWithdrawl tells us what date we can call the withdraw function and explect it to
-  //send the money back to us.
+  /**
+   * @dev tells us what date we can call the withdraw function
+   */
   function NextWithdraw() constant returns(uint secondsAfter1970){
     return contractStart + (Period() * currentTerm);
   }
 
+  /**
+   * @dev the fallback function will make a deposit
+   */
   function () payable{
     Deposit();
   }
 
+  /**
+   * @dev Put ETH into the contract, also called by the fallback function
+   */
   function Deposit() payable {
     //don't accept ether if the term is over
     if(currentTerm > term) throw;
@@ -71,8 +104,10 @@ contract DisciplineWallet {
     }
   }
 
+  /**
+   * @dev Withdraw will send the payout to the owner if enough time has passed
+   */
   function Withdraw() onlyOwner returns(bool ok){
-
     if(currentTerm <= term && now > NextWithdraw()){
 
       //payout may not be more than balance / term or the account has been underfunded
@@ -97,8 +132,13 @@ contract DisciplineWallet {
 
   }
 
+
+  /**
+   * @dev once all terms have expired you can move any remaining ETH to another account
+   * @param targetAddress The address to transfer remaining ETH to.
+   */
   function WithdrawAll(address targetAddress) onlyOwner returns(bool ok){
-    if (targetAddress == 0x0) throw;
+    if (targetAddress == 0x0) throw; //dont accidentally burn ether
     if(currentTerm > term && this.balance > 0){
       targetAddress.transfer(this.balance);
       bActive = false;
@@ -119,6 +159,12 @@ contract DisciplineWallet {
     }
   }
 
+  /**
+   * @dev Allows the owner to send tokens elsewhere that were accidentally sent to this account
+   * @param Token The address of the ERC20 token
+   * @param _to The address the tokens should end up at
+   * @param _value The amount of tokens
+   */
   function safetyTransferToken(address Token, address _to, uint _value) onlyOwner returns (bool ok){
     bytes4 sig = bytes4(sha3("transfer(address,uint256)"));
     return Token.call(sig, _to, _value);
