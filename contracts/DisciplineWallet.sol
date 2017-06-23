@@ -43,7 +43,7 @@ contract DisciplineWallet {
   /**
    * @dev constructor
    * @param termLength number of months that the contract will be active
-   * @param number of wei to pay out
+   * @param weiOutputPerPeriod number of wei to pay out
    */
   function DisciplineWallet(uint16 termLength, uint weiOutputPerPeriod) {
 
